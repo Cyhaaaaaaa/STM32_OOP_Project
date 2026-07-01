@@ -395,6 +395,11 @@
               <FileType>1</FileType>
               <FilePath>..\App\main.c</FilePath>
             </File>
+            <File>
+              <FileName>app_lighting.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\app_lighting.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
