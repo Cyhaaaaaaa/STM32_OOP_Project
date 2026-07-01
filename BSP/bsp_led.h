@@ -25,5 +25,7 @@ typedef struct LED_Device {
 
 // 外部声明：向全系统暴露的“系统指示灯”对象指针
 extern LED_Device_t* SysLED;
+extern LED_Device_t* RunLED;  // 新增的 PA1（我们给它起名叫运行指示灯）
+
 
 #endif /* __BSP_LED_H */

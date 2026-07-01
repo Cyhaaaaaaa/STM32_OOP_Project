@@ -21,6 +21,12 @@ static LED_HW_Config_t PC13_Config = {
     RCC_APB2Periph_GPIOC
 };
 
+// 1. 新增 PA1 的硬件配置参数
+static LED_HW_Config_t PA1_Config = {
+    GPIOA,
+    GPIO_Pin_1,
+    RCC_APB2Periph_GPIOA
+};
 
 /* ==================================================================== */
 /* ======================= 2. 底层行为的具体实现 ======================== */
@@ -77,5 +83,16 @@ static LED_Device_t System_LED_Instance = {
     .hw_config = &PC13_Config  // 把 PC13 的参数挂载给万能指针
 };
 
+// 3. 【新增】装配新的 PA1 对象 (方法全复用，只换配置包)
+static LED_Device_t Run_LED_Instance = {
+    .Init    = LED_HW_Init,      // 依然指向同一个公用函数！
+    .TurnOn  = LED_HW_TurnOn,
+    .TurnOff = LED_HW_TurnOff,
+    .Toggle  = LED_HW_Toggle,
+    .hw_config = &PA1_Config     // 唯一不同的地方：挂载了 PA1 的配置
+};
+
 // 对外暴露这个对象的指针！应用层拿到的就是这个。
 LED_Device_t* SysLED = &System_LED_Instance;
+LED_Device_t* RunLED = &Run_LED_Instance;
+
