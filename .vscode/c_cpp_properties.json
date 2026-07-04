@@ -8,6 +8,8 @@
                 "${workspaceFolder}/BSP",
                 "${workspaceFolder}/CMSIS",
                 "${workspaceFolder}/Driver",
+                "${workspaceFolder}/Middlewares",
+                "${workspaceFolder}/Devices",
                 "${workspaceFolder}/System",
                 "D:/Keil_v5/ARM/ARMCC/include" 
             ],

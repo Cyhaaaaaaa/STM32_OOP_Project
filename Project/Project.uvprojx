@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER,STM32F10X_MD</Define>
               <Undefine></Undefine>
-              <IncludePath>..\App;..\BSP;..\CMSIS;..\Driver\FWLIB\inc;..\System</IncludePath>
+              <IncludePath>..\App;..\BSP;..\CMSIS;..\Driver\FWLIB\inc;..\System;..\Middlewares;..\Devices</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -436,14 +436,14 @@
           <GroupName>BSP</GroupName>
           <Files>
             <File>
-              <FileName>bsp_led.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\BSP\bsp_led.c</FilePath>
+              <FileName>bsp_gpio.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BSP\bsp_gpio.h</FilePath>
             </File>
             <File>
-              <FileName>bsp_led.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\BSP\bsp_led.h</FilePath>
+              <FileName>bsp_gpio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_gpio.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -716,6 +716,24 @@
               <FilePath>..\CMSIS\system_stm32f10x.h</FilePath>
             </File>
           </Files>
+        </Group>
+        <Group>
+          <GroupName>Devices</GroupName>
+          <Files>
+            <File>
+              <FileName>device_led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Devices\device_led.c</FilePath>
+            </File>
+            <File>
+              <FileName>device_led.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Devices\device_led.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Middlewares</GroupName>
         </Group>
       </Groups>
     </Target>
