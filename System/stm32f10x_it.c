@@ -23,6 +23,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_it.h"
 #include "delay.h"
+#include "bsp_uart.h"
 /** @addtogroup STM32F10x_StdPeriph_Template
   * @{
   */
@@ -151,6 +152,36 @@ void SysTick_Handler(void)
 /*void PPP_IRQHandler(void)
 {
 }*/
+
+/**
+  * @brief  This function handles USART1 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void USART1_IRQHandler(void)
+{
+    BSP_UART_IRQHandler(BSP_UART_GetInstance(BSP_UART_1));
+}
+
+/**
+  * @brief  This function handles USART2 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void USART2_IRQHandler(void)
+{
+    BSP_UART_IRQHandler(BSP_UART_GetInstance(BSP_UART_2));
+}
+
+/**
+  * @brief  This function handles USART3 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void USART3_IRQHandler(void)
+{
+    BSP_UART_IRQHandler(BSP_UART_GetInstance(BSP_UART_3));
+}
 
 /**
   * @}
