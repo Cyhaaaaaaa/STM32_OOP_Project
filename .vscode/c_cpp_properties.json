@@ -11,14 +11,33 @@
                 "${workspaceFolder}/Middlewares",
                 "${workspaceFolder}/Devices",
                 "${workspaceFolder}/System",
-                "D:/Keil_v5/ARM/ARMCC/include" 
+                "D:/Keil_v5/ARM/ARMCC/include"
             ],
             "defines": [
                 "USE_STDPERIPH_DRIVER",
                 "STM32F10X_HD",
                 "__CC_ARM"
             ],
-            "compilerPath": "", 
+            "compilerPath": "",
+            "cStandard": "c99",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "GCC",
+            "includePath": [
+                "${workspaceFolder}/App",
+                "${workspaceFolder}/BSP",
+                "${workspaceFolder}/CMSIS",
+                "${workspaceFolder}/Devices",
+                "${workspaceFolder}/Driver/FWLIB/inc",
+                "${workspaceFolder}/System"
+            ],
+            "defines": [
+                "USE_STDPERIPH_DRIVER",
+                "STM32F10X_MD"
+            ],
+            "compilerPath": "/opt/homebrew/bin/arm-none-eabi-gcc",
             "cStandard": "c99",
             "cppStandard": "c++11",
             "intelliSenseMode": "gcc-arm"
