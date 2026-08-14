@@ -37,6 +37,8 @@ RTE/
 # GCC 交叉编译产物（Makefile 构建）
 # ==============================
 build/
+# clangd 编译数据库（make compile_commands 生成，勿提交）
+compile_commands.json
 
 # ==============================
 # 调试器日志文件
@@ -48,6 +50,7 @@ JLinkLog.txt
 # ==============================
 # 编辑器与系统相关
 # ==============================
-# .vscode/ (如果你不想同步 VS Code 的 c_cpp_properties 等配置，可以取消这行的注释)
+# 整个 .vscode/ 目录：clangd / 调试 / 构建配置均为本机相关，不共享
+.vscode/
 .DS_Store
 Thumbs.db

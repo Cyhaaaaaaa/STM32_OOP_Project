@@ -120,9 +120,9 @@ ALL_OBJS   = $(C_OBJS) $(ASM_OBJS)
 DEPS       = $(ALL_OBJS:.o=.d)
 
 # ---- 主目标 ----
-.PHONY: all clean rebuild
+.PHONY: all clean rebuild compile_commands
 
-all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).bin $(BUILD_DIR)/$(TARGET).hex
+all: compile_commands $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).bin $(BUILD_DIR)/$(TARGET).hex
 
 # ---- 链接 ----
 $(BUILD_DIR)/$(TARGET).elf: $(ALL_OBJS) CMSIS/STM32F103_FLASH.ld
@@ -153,6 +153,12 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 rebuild: clean all
+
+# ---- 生成 clangd 索引数据库 ----
+# 依据当前 C_SOURCES 和 CFLAGS 生成 compile_commands.json（工程根目录，clangd 自动识别）
+# 新增 .c 文件后运行: make compile_commands
+compile_commands:
+	@C_SOURCES="$(C_SOURCES)" CFLAGS="$(CFLAGS)" python3 -c 'import json,os; srcs=[s for s in os.environ["C_SOURCES"].split() if s.endswith(".c")]; flags=["arm-none-eabi-gcc"]+[f for f in os.environ["CFLAGS"].split() if not f.startswith("--specs=")]; json.dump([{"directory":os.getcwd(),"command":" ".join(flags+["-c",s]),"file":s} for s in srcs],open("compile_commands.json","w"),indent=2); print("OK: %d units -> compile_commands.json" % len(srcs))'
 
 # ---- 包含自动依赖 ----
 -include $(DEPS)
