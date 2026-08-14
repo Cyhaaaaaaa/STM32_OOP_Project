@@ -1,4 +1,5 @@
 #include "delay.h"
+#include "stm32f10x.h" // SysTick_Config / SystemCoreClock / SysTick 寄存器
 
 // 全局系统心跳计数器（每1ms递增1次）
 // volatile 关键字防止编译器优化，因为它会在中断中被修改

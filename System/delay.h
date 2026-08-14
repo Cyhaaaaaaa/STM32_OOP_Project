@@ -1,7 +1,7 @@
 #ifndef __DELAY_H
 #define __DELAY_H
 
-#include "stm32f10x.h"
+#include <stdint.h>
 #include <stdbool.h>
 
 // 初始化延时系统与心跳
