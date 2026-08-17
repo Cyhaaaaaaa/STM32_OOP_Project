@@ -82,6 +82,8 @@ C_SOURCES  = \
     CMSIS/system_stm32f10x.c          \
     Devices/device_led.c              \
     System/delay.c                    \
+    System/workqueue.c                \
+    System/notifier.c                 \
     System/stm32f10x_it.c             \
     Driver/FWLIB/src/misc.c           \
     Driver/FWLIB/src/stm32f10x_adc.c  \

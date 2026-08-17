@@ -1,20 +1,36 @@
 #include "device_led.h"
-#include "bsp_gpio.h"
-// 绝对没有任何 STM32/GD32 相关的头文件！
-// 专业解释：这一行是关键约束——设备层只能 #include BSP 的抽象头文件，绝不碰 stm32f10x.h。
-// 一旦出现芯片相关头文件，就说明分层被破坏了。保持这个约束，换芯片时设备层才一行都不用改。
+#include "bsp_gpio.h"   /* 只依赖 BSP 抽象接口，绝对不碰 stm32f10x.h */
+#include "workqueue.h"  /* 事件驱动：让 LED 自己定时翻转 */
+#include "delay.h"      /* 只要 Get_SysTick() 时间基准 */
 
-// 定义黑盒遥控器，习惯性赋 0 (NULL) 防止野指针
+/*
+ * 设计说明（事件驱动版 vs 轮询版）：
+ *   轮询版：App 每圈调用 Task()，Task 里用 systick_timeout 判断到点没、再翻转。
+ *   事件版：App 只"声明"红灯要 100ms 闪一次，之后不再过问；设备内部挂一个
+ *           workqueue 任务，每 20ms 醒来一次检查"该翻转了吗"，到点就翻，
+ *           翻完再把自己挂回队列——完全自驱动，不占 App 的一行轮询代码。
+ *
+ * 这个 20ms 的 work 就是 sc2016x 里 module_led 那套"灯语播放器"的极简雏形：
+ *   一个定时 tick 推进时间线，把"怎么闪"表达成数据，而不是一堆 if/else。
+ */
 
-//定义两个GPIO_Pin结构体指针，来存放构造函数返回的指针
-static struct GPIO_Pin* led_green = 0;
-static struct GPIO_Pin* led_red = 0;
-// 专业解释：这是设备层的"私有成员"——它持有 BSP 层返回的不透明对象指针（那张遥控器）。
-// static 让它们只在本文件可见（私有）；初始化为 0(NULL)，避免未初始化就使用导致野指针。
-// 注意：这里只知道它是 struct GPIO_Pin*，完全不知道里面存的是 STM32 的端口还是引脚。
+/* 每个 LED 通道的内部状态（设备层私有，上层看不到） */
+typedef struct {
+    struct GPIO_Pin *pin;        /* BSP 返回的"遥控器" */
+    LED_Mode_t       mode;       /* 当前行为：常灭/常亮/闪烁 */
+    uint16_t         period_ms;  /* 闪烁的翻转间隔 */
+    uint32_t         last_toggle;/* 上次翻转的时刻 */
+    bool             level;      /* 逻辑电平：true=亮，false=灭 */
+} LED_Channel;
 
-// 用纯粹的抽象语言描述你的物理连线（利用 C99 指定初始化器，极度清晰）
-//定义两个GPIO_Config结构体变量，来存放LED的配置信息
+static LED_Channel g_leds[LED_IDX_COUNT];
+
+/*
+ * 硬件描述（配置单）：绿灯接 PC13、红灯接 PA1，推挽输出。
+ * 专业解释：LED 负极接 GPIO，正极接 VCC，所以"亮"= 引脚拉低。
+ * 这个"低电平点亮"的物理事实被封装在下面的 led_apply_level 里，
+ * 上层只管说"亮/灭"，不用知道是拉高还是拉低。
+ */
 static GPIO_Config_t led_green_cfg = {
     .port = BSP_PORT_C,
     .pin  = BSP_PIN_13,
@@ -26,32 +42,119 @@ static GPIO_Config_t led_red_cfg = {
     .pin  = BSP_PIN_1,
     .mode = BSP_GPIO_MODE_OUT_PP
 };
-// 专业解释：这两张"订单"描述的是硬件事实（绿灯接 C13、红灯接 A1，推挽输出），
-// 用的是 BSP 定义的抽象词汇(BSP_PORT_C/BSP_PIN_13)，而不是 STM32 的 GPIOA/Pin_13。
-// .port = ... 这种「指定初始化器」是 C99 特性，按字段名赋值，可读性远超按位置赋值。
-// 将来换电路板只要改这两张表，其余逻辑一概不动——这就是"把变化隔离在数据里"。
 
-void Device_LED_Init(void) {
-    // 把“配置单”交给 BSP 工厂，拿回“遥控器”
-    //传入GPIO_Config_t类型的指针，通过构造函数来配置真实的GPIO引脚，再返回一个GPIO_Pin类型的指针，存放在led_green和led_red中
-    //GPIO_Pin这个结构体为半透明结构体，外部无法访问，需要通过BSP提供的接口来操作
-    led_green = GPIO_Pin_Create(&led_green_cfg);
-    led_red   = GPIO_Pin_Create(&led_red_cfg);
-    // 专业解释：这就是「依赖注入 + 工厂模式」。设备层把订单(配置)交给 BSP 的工厂函数，
-    // 工厂内部完成真正的硬件初始化（开时钟、配引脚），返回不透明对象指针存进 led_green/led_red。
-    // 从此设备层只需握着这两张"遥控器"操作，底层细节完全被 BSP 隐藏。
+/* 自驱动 tick 周期：20ms 醒来检查一次 */
+#define LED_TICK_MS  20U
+
+/* 把"逻辑亮灭"翻译成"物理高低电平"，并缓存状态 */
+static void led_apply_level(LED_Channel *ch, bool on)
+{
+    if (!ch || !ch->pin) {
+        return;
+    }
+    if (on) {
+        GPIO_SetLow(ch->pin);   /* 低电平 = 点亮（本板 LED 约定） */
+    } else {
+        GPIO_SetHigh(ch->pin);  /* 高电平 = 熄灭 */
+    }
+    ch->level = on;
 }
 
-// 以下全部变成了拿着“遥控器”按按键的纯逻辑操作
-//调用bsp层封装好的函数，传入GPIO_Pin这个结构体的指针，这些函数内部可以访问到GPIO_Pin里面的成员，从而实现对LED的控制操作
-void Device_LED_Green_On(void)      { GPIO_SetLow(led_green); }
-void Device_LED_Green_Off(void)     { GPIO_SetHigh(led_green); }
-void Device_LED_Green_Toggle(void)  { GPIO_Toggle(led_green); }
+/* ---- 立即控制接口（事件驱动用） ---- */
 
-void Device_LED_Red_On(void)        { GPIO_SetLow(led_red); }
-void Device_LED_Red_Off(void)       { GPIO_SetHigh(led_red); }
-void Device_LED_Red_Toggle(void)    { GPIO_Toggle(led_red); }
-// 专业解释：这些是设备层暴露给 App 的"语义化接口"。注意它们只描述行为(开/关/翻转)，
-// 且用"低电平点亮、高电平熄灭"(SetLow=On、SetHigh=Off)这样的物理事实封装在这里。
-// App 层调用 Device_LED_Green_On() 时，连"LED 是低电平亮"这种电路细节都不需要知道——
-// 这就是逐层抽象的价值：每一层只负责把自己该隐藏的细节藏好。
+void Device_LED_On(LED_Index_t idx)
+{
+    if (idx < LED_IDX_COUNT) {
+        led_apply_level(&g_leds[idx], true);
+    }
+}
+
+void Device_LED_Off(LED_Index_t idx)
+{
+    if (idx < LED_IDX_COUNT) {
+        led_apply_level(&g_leds[idx], false);
+    }
+}
+
+void Device_LED_Toggle(LED_Index_t idx)
+{
+    if (idx < LED_IDX_COUNT) {
+        led_apply_level(&g_leds[idx], !g_leds[idx].level);
+    }
+}
+
+/* ---- 行为描述接口（自驱动用） ---- */
+
+void Device_LED_SetBehavior(LED_Index_t idx, LED_Mode_t mode, uint16_t period_ms)
+{
+    if (idx >= LED_IDX_COUNT) {
+        return;
+    }
+
+    LED_Channel *ch = &g_leds[idx];
+    ch->mode      = mode;
+    ch->period_ms = period_ms;
+
+    /* 立即应用初始状态，避免要等下一个 tick 才生效 */
+    switch (mode) {
+    case LED_MODE_ON:
+        led_apply_level(ch, true);
+        break;
+    case LED_MODE_OFF:
+        led_apply_level(ch, false);
+        break;
+    case LED_MODE_BLINK:
+        ch->last_toggle = Get_SysTick();
+        led_apply_level(ch, false);   /* 从"灭"开始，下一次 tick 翻到"亮" */
+        break;
+    }
+}
+
+/* ---- 自驱动 work（设备层私有） ---- */
+
+static struct work_struct g_led_work;
+
+/*
+ * 20ms 醒来一次：扫描所有"闪烁"通道，到翻转间隔就翻转一次。
+ * 处理完再把自己挂回队列，形成自调度。
+ */
+static void led_tick_work_cb(void *arg)
+{
+    (void)arg;
+
+    uint32_t now = Get_SysTick();
+
+    for (int i = 0; i < LED_IDX_COUNT; i++) {
+        LED_Channel *ch = &g_leds[i];
+
+        if (ch->mode == LED_MODE_BLINK && ch->period_ms != 0) {
+            /* (int32_t) 有符号比较，防 uint32 回绕 */
+            if ((int32_t)(now - ch->last_toggle) >= ch->period_ms) {
+                ch->last_toggle = now;
+                led_apply_level(ch, !ch->level);
+            }
+        }
+    }
+
+    /* 自调度：过 20ms 再醒。这就是替代主循环轮询的关键一步。 */
+    schedule_delayed_work(&g_led_work, LED_TICK_MS);
+}
+
+void Device_LED_Init(void)
+{
+    /* 1. 用配置单创建 GPIO 对象（依赖注入 + 工厂） */
+    g_leds[LED_IDX_GREEN].pin = GPIO_Pin_Create(&led_green_cfg);
+    g_leds[LED_IDX_RED].pin   = GPIO_Pin_Create(&led_red_cfg);
+
+    /* 2. 全部先置"常灭"的安全默认态 */
+    for (int i = 0; i < LED_IDX_COUNT; i++) {
+        g_leds[i].mode        = LED_MODE_OFF;
+        g_leds[i].period_ms   = 0;
+        g_leds[i].last_toggle = 0;
+        led_apply_level(&g_leds[i], false);
+    }
+
+    /* 3. 启动自驱动任务：LED 从此"自己会闪"，App 不用每圈轮询它 */
+    INIT_WORK(&g_led_work, "led_tick", led_tick_work_cb, NULL);
+    schedule_delayed_work(&g_led_work, LED_TICK_MS);
+}
